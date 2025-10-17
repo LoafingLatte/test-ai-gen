@@ -1,0 +1,815 @@
+openapi: 3.0.0
+info:
+  title: LBK Points API
+  description: |
+    A comprehensive REST API for managing users and point transfers in the LBK Points system.
+    Includes CRUD operations for users and atomic transfer functionality with point ledger tracking.
+  version: 1.0.0
+  contact:
+    name: LBK Development Team
+  license:
+    name: MIT
+
+servers:
+  - url: http://localhost:3000
+    description: Local development server
+  - url: https://api.example.com
+    description: Production server
+
+tags:
+  - name: Health
+    description: System health check
+  - name: Users
+    description: User management endpoints (CRUD)
+  - name: Transfers
+    description: Point transfer and ledger endpoints
+
+components:
+  schemas:
+    User:
+      type: object
+      required:
+        - id
+        - membership_id
+        - first_name
+        - last_name
+        - phone
+        - email
+        - membership_date
+        - membership_level
+        - points
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: integer
+          format: int64
+          description: Unique user identifier
+        membership_id:
+          type: string
+          description: Membership ID (unique)
+          example: "LBK001234"
+        first_name:
+          type: string
+          description: User's first name
+          example: "สมชาย"
+        last_name:
+          type: string
+          description: User's last name
+          example: "ใจดี"
+        phone:
+          type: string
+          description: User's phone number
+          example: "081-234-5678"
+        email:
+          type: string
+          format: email
+          description: User's email address (unique)
+          example: "somchai@example.com"
+        membership_date:
+          type: string
+          description: Date of membership
+          example: "15/6/2566"
+        membership_level:
+          type: string
+          description: Membership tier
+          enum: [Gold, Silver, Platinum, Bronze]
+          example: "Gold"
+        points:
+          type: integer
+          format: int64
+          description: Current point balance
+          example: 15420
+        created_at:
+          type: integer
+          format: int64
+          description: Unix timestamp of creation
+        updated_at:
+          type: integer
+          format: int64
+          description: Unix timestamp of last update
+
+    CreateUserRequest:
+      type: object
+      required:
+        - membership_id
+        - first_name
+        - last_name
+        - phone
+        - email
+        - membership_date
+        - membership_level
+        - points
+      properties:
+        membership_id:
+          type: string
+          example: "LBK001234"
+        first_name:
+          type: string
+          example: "สมชาย"
+        last_name:
+          type: string
+          example: "ใจดี"
+        phone:
+          type: string
+          example: "081-234-5678"
+        email:
+          type: string
+          format: email
+          example: "somchai@example.com"
+        membership_date:
+          type: string
+          example: "15/6/2566"
+        membership_level:
+          type: string
+          enum: [Gold, Silver, Platinum, Bronze]
+          example: "Gold"
+        points:
+          type: integer
+          format: int64
+          example: 15420
+
+    UpdateUserRequest:
+      type: object
+      properties:
+        membership_id:
+          type: string
+        first_name:
+          type: string
+        last_name:
+          type: string
+        phone:
+          type: string
+        email:
+          type: string
+          format: email
+        membership_date:
+          type: string
+        membership_level:
+          type: string
+          enum: [Gold, Silver, Platinum, Bronze]
+        points:
+          type: integer
+          format: int64
+
+    TransferStatus:
+      type: string
+      enum:
+        - pending
+        - processing
+        - completed
+        - failed
+        - cancelled
+        - reversed
+      description: Status of the transfer
+
+    Transfer:
+      type: object
+      required:
+        - idemKey
+        - fromUserId
+        - toUserId
+        - amount
+        - status
+        - createdAt
+        - updatedAt
+      properties:
+        idemKey:
+          type: string
+          description: Idempotency key - unique identifier for the transfer
+          example: "a8b4f2e0556264f1c9b622a2f2f4c9b1"
+        transferId:
+          type: integer
+          format: int64
+          description: Internal database ID (autoincrement)
+          example: 9876
+        fromUserId:
+          type: integer
+          format: int64
+          description: ID of the sender
+          minimum: 1
+          example: 101
+        toUserId:
+          type: integer
+          format: int64
+          description: ID of the receiver
+          minimum: 1
+          example: 202
+        amount:
+          type: integer
+          format: int64
+          description: Amount to transfer (in cents, max 200 = 2.00)
+          minimum: 1
+          maximum: 200
+          example: 100
+        status:
+          $ref: '#/components/schemas/TransferStatus'
+        note:
+          type: string
+          nullable: true
+          maxLength: 512
+          description: Optional transfer note
+          example: "ขอบคุณสำหรับช่วยงาน"
+        createdAt:
+          type: string
+          format: date-time
+          description: Transfer creation timestamp
+          example: "2025-10-17T14:03:12Z"
+        updatedAt:
+          type: string
+          format: date-time
+          description: Transfer last update timestamp
+          example: "2025-10-17T14:03:12Z"
+        completedAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: Transfer completion timestamp
+          example: "2025-10-17T14:03:12Z"
+        failReason:
+          type: string
+          nullable: true
+          description: Reason for transfer failure
+          example: "Insufficient funds"
+
+    TransferCreateRequest:
+      type: object
+      required:
+        - fromUserId
+        - toUserId
+        - amount
+      properties:
+        fromUserId:
+          type: integer
+          format: int64
+          minimum: 1
+          description: ID of the sender
+          example: 101
+        toUserId:
+          type: integer
+          format: int64
+          minimum: 1
+          description: ID of the receiver
+          example: 202
+        amount:
+          type: integer
+          format: int64
+          minimum: 1
+          maximum: 200
+          description: Amount to transfer (in cents, max 200 = 2.00)
+          example: 100
+        note:
+          type: string
+          nullable: true
+          maxLength: 512
+          description: Optional transfer note
+          example: "ขอบคุณสำหรับช่วยงาน"
+
+    TransferResponse:
+      type: object
+      properties:
+        transfer:
+          $ref: '#/components/schemas/Transfer'
+
+    TransferListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Transfer'
+          description: List of transfers
+        page:
+          type: integer
+          minimum: 1
+          description: Current page number
+          example: 1
+        pageSize:
+          type: integer
+          minimum: 1
+          maximum: 200
+          description: Number of items per page
+          example: 20
+        total:
+          type: integer
+          minimum: 0
+          description: Total number of transfers
+          example: 42
+
+    PointLedger:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+          description: Ledger entry ID
+        user_id:
+          type: integer
+          format: int64
+          description: User ID
+        change:
+          type: integer
+          format: int64
+          description: Point change (positive for incoming, negative for outgoing)
+        balance_after:
+          type: integer
+          format: int64
+          description: Balance after the transaction
+        event_type:
+          type: string
+          enum:
+            - transfer_out
+            - transfer_in
+            - adjust
+            - earn
+            - redeem
+          description: Type of point event
+        transfer_id:
+          type: integer
+          format: int64
+          nullable: true
+          description: Reference to transfer ID if applicable
+        reference:
+          type: string
+          nullable: true
+          description: Reference information
+        metadata:
+          type: string
+          nullable: true
+          description: JSON metadata
+        created_at:
+          type: integer
+          format: int64
+          description: Unix timestamp of creation
+
+    SuccessResponse:
+      type: object
+      properties:
+        status:
+          type: integer
+          description: HTTP status code
+        message:
+          type: string
+          description: Success message
+        data:
+          type: object
+          description: Response data payload
+
+    ErrorResponse:
+      type: object
+      required:
+        - status
+        - message
+      properties:
+        status:
+          type: integer
+          description: HTTP status code
+        message:
+          type: string
+          description: Error message
+        error:
+          type: string
+          description: Detailed error information
+
+paths:
+  /health:
+    get:
+      tags:
+        - Health
+      summary: Health check endpoint
+      description: Check if the API server is running and healthy
+      responses:
+        '200':
+          description: Server is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "ok"
+
+  /api/v1/users:
+    post:
+      tags:
+        - Users
+      summary: Create a new user
+      description: Creates a new user with the provided information
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateUserRequest'
+            examples:
+              create_user:
+                value:
+                  membership_id: "LBK001234"
+                  first_name: "สมชาย"
+                  last_name: "ใจดี"
+                  phone: "081-234-5678"
+                  email: "somchai@example.com"
+                  membership_date: "15/6/2566"
+                  membership_level: "Gold"
+                  points: 15420
+      responses:
+        '201':
+          description: User created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 201
+                  message:
+                    type: string
+                    example: "User created successfully"
+                  data:
+                    $ref: '#/components/schemas/User'
+        '400':
+          description: Invalid request data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    get:
+      tags:
+        - Users
+      summary: Get all users
+      description: Retrieves a list of all users in the system
+      responses:
+        '200':
+          description: Users retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 200
+                  message:
+                    type: string
+                    example: "Users retrieved successfully"
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/User'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/users/{id}:
+    get:
+      tags:
+        - Users
+      summary: Get user by ID
+      description: Retrieves a specific user by their ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+          description: User ID
+          example: 1
+      responses:
+        '200':
+          description: User retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 200
+                  message:
+                    type: string
+                    example: "User retrieved successfully"
+                  data:
+                    $ref: '#/components/schemas/User'
+        '400':
+          description: Invalid user ID
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    put:
+      tags:
+        - Users
+      summary: Update user
+      description: Updates an existing user with new information
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+          description: User ID
+          example: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateUserRequest'
+            examples:
+              update_user:
+                value:
+                  membership_level: "Platinum"
+                  points: 25000
+      responses:
+        '200':
+          description: User updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 200
+                  message:
+                    type: string
+                    example: "User updated successfully"
+                  data:
+                    $ref: '#/components/schemas/User'
+        '400':
+          description: Invalid request data or user ID
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    delete:
+      tags:
+        - Users
+      summary: Delete user
+      description: Deletes a user from the system
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+          description: User ID
+          example: 1
+      responses:
+        '200':
+          description: User deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 200
+                  message:
+                    type: string
+                    example: "User deleted successfully"
+                  data:
+                    type: object
+                    nullable: true
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/transfers:
+    post:
+      tags:
+        - Transfers
+      summary: Create a new point transfer
+      description: |
+        Creates an atomic point transfer between two users. The system automatically:
+        - Generates an idempotency key for tracking
+        - Validates both users exist
+        - Checks sender has sufficient points
+        - Updates both user point balances
+        - Creates ledger entries for audit trail
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TransferCreateRequest'
+            examples:
+              transfer_example:
+                value:
+                  fromUserId: 101
+                  toUserId: 202
+                  amount: 100
+                  note: "ขอบคุณสำหรับช่วยงาน"
+      responses:
+        '201':
+          description: Transfer created successfully
+          headers:
+            Idempotency-Key:
+              schema:
+                type: string
+              description: The generated idempotency key for tracking
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 201
+                  message:
+                    type: string
+                    example: "Transfer created successfully"
+                  data:
+                    $ref: '#/components/schemas/TransferResponse'
+        '400':
+          description: Invalid request parameters or validation failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                invalid_params:
+                  value:
+                    status: 400
+                    message: "Invalid request parameters"
+                    error: "fromUserId, toUserId, and amount must be valid"
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Transfer conflict (e.g., insufficient funds or amount exceeds maximum)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                insufficient_funds:
+                  value:
+                    status: 409
+                    message: "Insufficient points"
+                    error: "User does not have enough points to transfer"
+                amount_exceeded:
+                  value:
+                    status: 409
+                    message: "Amount exceeds maximum"
+                    error: "Maximum transfer amount is 2.00"
+        '422':
+          description: Unprocessable (e.g., transfer to self)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                transfer_to_self:
+                  value:
+                    status: 422
+                    message: "Cannot transfer to yourself"
+                    error: "fromUserId and toUserId must be different"
+
+    get:
+      tags:
+        - Transfers
+      summary: List transfers for a user
+      description: |
+        Retrieves paginated list of transfers where the user is either sender or receiver.
+        Results are ordered by creation date (newest first).
+      parameters:
+        - name: userId
+          in: query
+          required: true
+          schema:
+            type: integer
+            format: int64
+            minimum: 1
+          description: User ID to filter transfers
+          example: 101
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+          description: Page number (starting from 1)
+          example: 1
+        - name: pageSize
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 20
+          description: Number of items per page (1-200)
+          example: 20
+      responses:
+        '200':
+          description: Transfers retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 200
+                  message:
+                    type: string
+                    example: "Transfers retrieved successfully"
+                  data:
+                    $ref: '#/components/schemas/TransferListResponse'
+        '400':
+          description: Invalid query parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/transfers/{id}:
+    get:
+      tags:
+        - Transfers
+      summary: Get transfer by idempotency key
+      description: |
+        Retrieves a specific transfer using its idempotency key.
+        The idempotency key is the unique identifier returned when creating a transfer.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 8
+            maxLength: 128
+          description: Transfer idempotency key
+          example: "a8b4f2e0556264f1c9b622a2f2f4c9b1"
+      responses:
+        '200':
+          description: Transfer retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    example: 200
+                  message:
+                    type: string
+                    example: "Transfer retrieved successfully"
+                  data:
+                    $ref: '#/components/schemas/TransferResponse'
+        '400':
+          description: Invalid transfer ID format
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Transfer not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
